@@ -451,10 +451,13 @@
                 }
 
                 let offset = 2;
-                while (offset < dataView.byteLength) {
+                while (offset < dataView.byteLength - 4) {
                     if (dataView.getUint16(offset, false) !== 0xFFE1) {
-                        // Skip this segment
-                        offset += 2 + dataView.getUint16(offset + 2, false);
+                        // Skip this segment - check bounds first
+                        if (offset + 4 >= dataView.byteLength) break;
+                        const segmentSize = dataView.getUint16(offset + 2, false);
+                        offset += 2 + segmentSize;
+                        if (offset >= dataView.byteLength) break;
                         continue;
                     }
 
@@ -762,7 +765,7 @@
                 });
             }
 
-            async removeSelectedMetadata() {
+            removeSelectedMetadata() {
                 const checkboxes = document.querySelectorAll('.metadata-checkbox:checked');
                 
                 if (checkboxes.length === 0) {
@@ -806,7 +809,10 @@
                 }
 
                 const a = document.createElement('a');
-                const fileName = this.currentFile.name.replace(/\.[^/.]+$/, '') + '_cleaned' + this.currentFile.name.match(/\.[^/.]+$/)[0];
+                const extensionMatch = this.currentFile.name.match(/\.[^/.]+$/);
+                const extension = extensionMatch ? extensionMatch[0] : '.jpg';
+                const baseName = this.currentFile.name.replace(/\.[^/.]+$/, '') || 'image';
+                const fileName = baseName + '_cleaned' + extension;
                 a.href = this.cleanedImageUrl;
                 a.download = fileName;
                 document.body.appendChild(a);
