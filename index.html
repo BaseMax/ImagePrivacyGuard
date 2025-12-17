@@ -248,6 +248,11 @@
             cursor: not-allowed;
         }
 
+        .btn-success-feedback {
+            background: #28a745 !important;
+            color: white;
+        }
+
         .image-preview {
             max-width: 100%;
             max-height: 400px;
@@ -384,6 +389,7 @@
                 this.currentFile = null;
                 this.metadata = {};
                 this.sensitiveFields = new Set();
+                this.selectAllButtonTimeout = null;
                 
                 // Constants for EXIF parsing limits
                 this.MAX_IFD_ENTRIES = 100; // Limit entries per IFD to prevent excessive processing
@@ -841,13 +847,35 @@
 
             selectAllSensitive() {
                 const checkboxes = document.querySelectorAll('.metadata-checkbox');
+                let selectedCount = 0;
                 checkboxes.forEach(checkbox => {
                     const key = checkbox.getAttribute('data-key');
                     // Only check sensitive fields that are not disabled
                     if (this.sensitiveFields.has(key) && !checkbox.disabled) {
                         checkbox.checked = true;
+                        selectedCount++;
                     }
                 });
+                
+                // Provide visual feedback
+                if (selectedCount > 0) {
+                    const button = document.getElementById('selectAllBtn');
+                    const originalText = button.textContent;
+                    
+                    // Clear any existing timeout to prevent race conditions
+                    if (this.selectAllButtonTimeout) {
+                        clearTimeout(this.selectAllButtonTimeout);
+                    }
+                    
+                    button.textContent = `✓ Selected ${selectedCount} Sensitive Field${selectedCount !== 1 ? 's' : ''}`;
+                    button.classList.add('btn-success-feedback');
+                    
+                    this.selectAllButtonTimeout = setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('btn-success-feedback');
+                        this.selectAllButtonTimeout = null;
+                    }, 2000);
+                }
             }
 
             removeSelectedMetadata() {
