@@ -497,6 +497,11 @@
 
             parseIFD(dataView, offset, littleEndian, metadata) {
                 try {
+                    // Bounds check for numEntries
+                    if (offset + 2 > dataView.byteLength) {
+                        return;
+                    }
+                    
                     const numEntries = dataView.getUint16(offset, littleEndian);
                     offset += 2;
 
@@ -525,6 +530,12 @@
 
                     for (let i = 0; i < numEntries && i < 100; i++) {
                         const entryOffset = offset + i * 12;
+                        
+                        // Bounds check for entry
+                        if (entryOffset + 12 > dataView.byteLength) {
+                            break;
+                        }
+                        
                         const tag = dataView.getUint16(entryOffset, littleEndian);
                         const type = dataView.getUint16(entryOffset + 2, littleEndian);
                         const count = dataView.getUint32(entryOffset + 4, littleEndian);
@@ -572,10 +583,18 @@
                 try {
                     let actualOffset = offset;
                     if (length > 4) {
+                        // Bounds check before reading offset
+                        if (offset + 4 > dataView.byteLength) {
+                            return '[String value]';
+                        }
                         actualOffset = dataView.getUint32(offset, littleEndian);
                     }
                     
                     for (let i = 0; i < Math.min(length, 100); i++) {
+                        // Bounds check for each character
+                        if (actualOffset + i >= dataView.byteLength) {
+                            break;
+                        }
                         const char = dataView.getUint8(actualOffset + i);
                         if (char === 0) break;
                         result += String.fromCharCode(char);
