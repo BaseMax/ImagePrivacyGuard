@@ -371,6 +371,11 @@
                 this.currentFile = null;
                 this.metadata = {};
                 this.sensitiveFields = new Set();
+                
+                // Constants for EXIF parsing limits
+                this.MAX_IFD_ENTRIES = 100; // Limit entries per IFD to prevent excessive processing
+                this.MAX_STRING_LENGTH = 100; // Maximum string length to read from EXIF data
+                
                 this.initializeEventListeners();
             }
 
@@ -528,7 +533,7 @@
                         0xA434: 'LensModel',
                     };
 
-                    for (let i = 0; i < numEntries && i < 100; i++) {
+                    for (let i = 0; i < numEntries && i < this.MAX_IFD_ENTRIES; i++) {
                         const entryOffset = offset + i * 12;
                         
                         // Bounds check for entry
@@ -590,7 +595,7 @@
                         actualOffset = dataView.getUint32(offset, littleEndian);
                     }
                     
-                    for (let i = 0; i < Math.min(length, 100); i++) {
+                    for (let i = 0; i < Math.min(length, this.MAX_STRING_LENGTH); i++) {
                         // Bounds check for each character
                         if (actualOffset + i >= dataView.byteLength) {
                             break;
@@ -668,8 +673,6 @@
                     return 'high';
                 } else if (sensitiveCount >= 2) {
                     return 'medium';
-                } else if (sensitiveCount >= 1) {
-                    return 'low';
                 } else {
                     return 'low';
                 }
@@ -746,17 +749,41 @@
                     
                     const displayValue = this.formatValue(value);
                     
-                    item.innerHTML = `
-                        <div class="metadata-label">
-                            ${isSensitive ? '<span class="warning-icon">⚠️</span>' : ''}
-                            <div>
-                                <div class="metadata-key">${key}</div>
-                                <div class="metadata-value">${displayValue}</div>
-                            </div>
-                        </div>
-                        <input type="checkbox" class="metadata-checkbox" data-key="${key}" ${isSensitive ? 'checked' : ''}>
-                    `;
-
+                    // Create elements safely to prevent XSS
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'metadata-label';
+                    
+                    if (isSensitive) {
+                        const warningIcon = document.createElement('span');
+                        warningIcon.className = 'warning-icon';
+                        warningIcon.textContent = '⚠️';
+                        labelDiv.appendChild(warningIcon);
+                    }
+                    
+                    const contentDiv = document.createElement('div');
+                    
+                    const keyDiv = document.createElement('div');
+                    keyDiv.className = 'metadata-key';
+                    keyDiv.textContent = key;
+                    
+                    const valueDiv = document.createElement('div');
+                    valueDiv.className = 'metadata-value';
+                    valueDiv.textContent = displayValue;
+                    
+                    contentDiv.appendChild(keyDiv);
+                    contentDiv.appendChild(valueDiv);
+                    labelDiv.appendChild(contentDiv);
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'metadata-checkbox';
+                    checkbox.setAttribute('data-key', key);
+                    if (isSensitive) {
+                        checkbox.checked = true;
+                    }
+                    
+                    item.appendChild(labelDiv);
+                    item.appendChild(checkbox);
                     metadataList.appendChild(item);
                 });
             }
