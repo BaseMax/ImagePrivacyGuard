@@ -151,6 +151,14 @@
             border-color: #ffcccc;
         }
 
+        .metadata-item.clickable {
+            cursor: pointer;
+        }
+
+        .metadata-item.disabled {
+            opacity: 0.6;
+        }
+
         .metadata-label {
             display: flex;
             align-items: center;
@@ -754,12 +762,13 @@
                     const isSensitive = this.sensitiveFields.has(key);
                     const isNonRemovable = nonRemovableFields.has(key);
                     const item = document.createElement('div');
-                    item.className = `metadata-item ${isSensitive ? 'sensitive' : ''}`;
                     
-                    // Make the row clickable only if it's not disabled
-                    if (!isNonRemovable) {
-                        item.style.cursor = 'pointer';
-                    }
+                    // Build class list
+                    const classes = ['metadata-item'];
+                    if (isSensitive) classes.push('sensitive');
+                    if (isNonRemovable) classes.push('disabled');
+                    else classes.push('clickable');
+                    item.className = classes.join(' ');
                     
                     const displayValue = this.formatValue(value);
                     
@@ -797,7 +806,6 @@
                     if (isNonRemovable) {
                         checkbox.disabled = true;
                         checkbox.title = 'This field cannot be removed (basic file property)';
-                        item.style.opacity = '0.6';
                     } else {
                         if (isSensitive) {
                             checkbox.checked = true;
