@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Privacy Guard - Metadata Risk Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragging {
+            border-color: #764ba2;
+            background: #e8eaff;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .results-container {
+            display: none;
+        }
+
+        .results-container.active {
+            display: block;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 1.1em;
+            margin: 20px 0;
+        }
+
+        .risk-low {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .risk-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .risk-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .metadata-section {
+            margin-top: 20px;
+        }
+
+        .metadata-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .metadata-item:hover {
+            background: #f8f9ff;
+            border-color: #667eea;
+        }
+
+        .metadata-item.sensitive {
+            background: #fff5f5;
+            border-color: #ffcccc;
+        }
+
+        .metadata-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .metadata-label .warning-icon {
+            color: #ff6b6b;
+            font-size: 1.2em;
+        }
+
+        .metadata-key {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .metadata-value {
+            color: #666;
+            margin-left: 10px;
+            word-break: break-word;
+        }
+
+        .metadata-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 400px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #1565c0;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .summary-item {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .summary-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .no-metadata {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .upload-area {
+                padding: 40px 15px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Image Privacy Guard</h1>
+            <p>Analyze and remove privacy-sensitive metadata from your images - 100% client-side</p>
+        </header>
+
+        <div class="card">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📸</div>
+                <div class="upload-text">Click or drag image here</div>
+                <div class="upload-subtext">Supports JPEG, PNG, and other image formats</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="results-container" id="resultsContainer">
+            <div class="card">
+                <h2>📊 Analysis Results</h2>
+                
+                <img id="imagePreview" class="image-preview" alt="Preview" style="display: none;">
+                
+                <div id="riskScore"></div>
+                
+                <div class="summary" id="summary"></div>
+                
+                <div class="info-box">
+                    <p><strong>🔐 Privacy Notice:</strong> All analysis is performed locally in your browser. Your images are never uploaded to any server.</p>
+                </div>
+
+                <div class="metadata-section">
+                    <h3>Detected Metadata</h3>
+                    <div id="metadataList"></div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="selectAllBtn">
+                        ✓ Select All Sensitive
+                    </button>
+                    <button class="btn btn-danger" id="removeBtn">
+                        🗑️ Remove Selected Metadata
+                    </button>
+                    <button class="btn btn-secondary" id="downloadBtn" style="display: none;">
+                        ⬇️ Download Cleaned Image
+                    </button>
+                    <button class="btn btn-secondary" id="resetBtn">
+                        ↻ Analyze Another Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MetadataRiskAnalyzer {
+            constructor() {
+                this.currentImage = null;
+                this.currentFile = null;
+                this.metadata = {};
+                this.sensitiveFields = new Set();
+                
+                // Constants for EXIF parsing limits
+                this.MAX_IFD_ENTRIES = 100; // Limit entries per IFD to prevent excessive processing
+                this.MAX_STRING_LENGTH = 100; // Maximum string length to read from EXIF data
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+
+                uploadArea.addEventListener('click', () => fileInput.click());
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFile(e.target.files[0]);
+                    }
+                });
+
+                // Drag and drop
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragging');
+                });
+
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragging');
+                });
+
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragging');
+                    if (e.dataTransfer.files.length > 0) {
+                        this.handleFile(e.dataTransfer.files[0]);
+                    }
+                });
+
+                document.getElementById('selectAllBtn').addEventListener('click', () => this.selectAllSensitive());
+                document.getElementById('removeBtn').addEventListener('click', () => this.removeSelectedMetadata());
+                document.getElementById('downloadBtn').addEventListener('click', () => this.downloadCleanedImage());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+            }
+
+            handleFile(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file');
+                    return;
+                }
+
+                this.currentFile = file;
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    this.currentImage = new Image();
+                    this.currentImage.onload = () => {
+                        this.extractMetadata(file);
+                    };
+                    this.currentImage.src = e.target.result;
+                    
+                    // Show preview
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+
+                reader.readAsDataURL(file);
+            }
+
+            async extractMetadata(file) {
+                const arrayBuffer = await file.arrayBuffer();
+                const metadata = this.parseEXIF(new DataView(arrayBuffer));
+                this.metadata = metadata;
+                this.analyzeMetadata();
+            }
+
+            parseEXIF(dataView) {
+                const metadata = {};
+                
+                // Check for JPEG marker
+                if (dataView.getUint16(0, false) !== 0xFFD8) {
+                    return metadata; // Not a JPEG
+                }
+
+                let offset = 2;
+                while (offset < dataView.byteLength - 4) {
+                    if (dataView.getUint16(offset, false) !== 0xFFE1) {
+                        // Skip this segment - check bounds first
+                        if (offset + 4 >= dataView.byteLength) break;
+                        const segmentSize = dataView.getUint16(offset + 2, false);
+                        offset += 2 + segmentSize;
+                        if (offset >= dataView.byteLength) break;
+                        continue;
+                    }
+
+                    // Found APP1 marker (EXIF)
+                    offset += 4; // Skip marker and size
+
+                    // Check for EXIF header
+                    if (dataView.getUint32(offset, false) !== 0x45786966) { // "Exif"
+                        break;
+                    }
+                    offset += 6; // Skip "Exif\0\0"
+
+                    // Parse TIFF header
+                    const littleEndian = dataView.getUint16(offset, false) === 0x4949;
+                    offset += 2;
+
+                    // Skip TIFF magic number
+                    offset += 2;
+
+                    // Get IFD offset
+                    const ifdOffset = dataView.getUint32(offset, littleEndian);
+                    offset += 4;
+
+                    // Parse IFD
+                    this.parseIFD(dataView, offset - 8 + ifdOffset, littleEndian, metadata);
+                    break;
+                }
+
+                // Add file metadata
+                metadata['File Name'] = this.currentFile.name;
+                metadata['File Size'] = this.formatFileSize(this.currentFile.size);
+                metadata['File Type'] = this.currentFile.type;
+                metadata['Last Modified'] = new Date(this.currentFile.lastModified).toLocaleString();
+
+                return metadata;
+            }
+
+            parseIFD(dataView, offset, littleEndian, metadata) {
+                try {
+                    // Bounds check for numEntries
+                    if (offset + 2 > dataView.byteLength) {
+                        return;
+                    }
+                    
+                    const numEntries = dataView.getUint16(offset, littleEndian);
+                    offset += 2;
+
+                    const tagNames = {
+                        0x010E: 'ImageDescription',
+                        0x010F: 'Make',
+                        0x0110: 'Model',
+                        0x0112: 'Orientation',
+                        0x011A: 'XResolution',
+                        0x011B: 'YResolution',
+                        0x0128: 'ResolutionUnit',
+                        0x0131: 'Software',
+                        0x0132: 'DateTime',
+                        0x013B: 'Artist',
+                        0x013E: 'WhitePoint',
+                        0x0213: 'YCbCrPositioning',
+                        0x8298: 'Copyright',
+                        0x8769: 'ExifOffset',
+                        0x8825: 'GPSInfo',
+                        0x9003: 'DateTimeOriginal',
+                        0x9004: 'DateTimeDigitized',
+                        0x9286: 'UserComment',
+                        0xA431: 'SerialNumber',
+                        0xA434: 'LensModel',
+                    };
+
+                    for (let i = 0; i < numEntries && i < this.MAX_IFD_ENTRIES; i++) {
+                        const entryOffset = offset + i * 12;
+                        
+                        // Bounds check for entry
+                        if (entryOffset + 12 > dataView.byteLength) {
+                            break;
+                        }
+                        
+                        const tag = dataView.getUint16(entryOffset, littleEndian);
+                        const type = dataView.getUint16(entryOffset + 2, littleEndian);
+                        const count = dataView.getUint32(entryOffset + 4, littleEndian);
+                        const valueOffset = entryOffset + 8;
+
+                        const tagName = tagNames[tag] || `Tag-${tag.toString(16)}`;
+                        
+                        try {
+                            let value;
+                            if (type === 2) { // ASCII
+                                value = this.readString(dataView, valueOffset, count, littleEndian);
+                            } else if (count === 1) {
+                                if (type === 3) { // SHORT
+                                    value = dataView.getUint16(valueOffset, littleEndian);
+                                } else if (type === 4) { // LONG
+                                    value = dataView.getUint32(valueOffset, littleEndian);
+                                } else {
+                                    value = dataView.getUint32(valueOffset, littleEndian);
+                                }
+                            } else {
+                                value = `[${count} values]`;
+                            }
+                            
+                            if (value !== null && value !== undefined) {
+                                metadata[tagName] = value;
+                            }
+                        } catch (e) {
+                            // Skip problematic tags
+                        }
+
+                        // Handle GPS Info
+                        if (tag === 0x8825) {
+                            metadata['GPS Coordinates'] = 'Present (Exact location data found)';
+                            metadata['GPSLatitude'] = 'GPS data detected';
+                            metadata['GPSLongitude'] = 'GPS data detected';
+                        }
+                    }
+                } catch (e) {
+                    // EXIF parsing error, return what we have
+                }
+            }
+
+            readString(dataView, offset, length, littleEndian) {
+                let result = '';
+                try {
+                    let actualOffset = offset;
+                    if (length > 4) {
+                        // Bounds check before reading offset
+                        if (offset + 4 > dataView.byteLength) {
+                            return '[String value]';
+                        }
+                        actualOffset = dataView.getUint32(offset, littleEndian);
+                    }
+                    
+                    for (let i = 0; i < Math.min(length, this.MAX_STRING_LENGTH); i++) {
+                        // Bounds check for each character
+                        if (actualOffset + i >= dataView.byteLength) {
+                            break;
+                        }
+                        const char = dataView.getUint8(actualOffset + i);
+                        if (char === 0) break;
+                        result += String.fromCharCode(char);
+                    }
+                } catch (e) {
+                    return '[String value]';
+                }
+                return result || '[String value]';
+            }
+
+            formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+
+            analyzeMetadata() {
+                this.sensitiveFields.clear();
+                const metadataEntries = Object.entries(this.metadata);
+
+                if (metadataEntries.length === 0) {
+                    this.displayNoMetadata();
+                    return;
+                }
+
+                // Identify sensitive fields
+                metadataEntries.forEach(([key, value]) => {
+                    if (this.isSensitiveField(key, value)) {
+                        this.sensitiveFields.add(key);
+                    }
+                });
+
+                const riskLevel = this.calculateRiskLevel();
+                this.displayResults(riskLevel);
+            }
+
+            isSensitiveField(key, value) {
+                const sensitivePatterns = [
+                    // GPS coordinates
+                    /GPS/i,
+                    /Latitude/i,
+                    /Longitude/i,
+                    /Location/i,
+                    // Device information
+                    /Make/i,
+                    /Model/i,
+                    /Software/i,
+                    /SerialNumber/i,
+                    /DeviceId/i,
+                    /HostComputer/i,
+                    // Personal information
+                    /Artist/i,
+                    /Author/i,
+                    /Copyright/i,
+                    /Owner/i,
+                    /Creator/i,
+                    // Timestamps (can reveal patterns)
+                    /DateTime/i,
+                    /DateTimeOriginal/i,
+                    /DateTimeDigitized/i,
+                ];
+
+                return sensitivePatterns.some(pattern => pattern.test(key));
+            }
+
+            calculateRiskLevel() {
+                const sensitiveCount = this.sensitiveFields.size;
+                const hasGPS = Array.from(this.sensitiveFields).some(field => /GPS|Latitude|Longitude/i.test(field));
+
+                if (hasGPS || sensitiveCount >= 5) {
+                    return 'high';
+                } else if (sensitiveCount >= 2) {
+                    return 'medium';
+                } else {
+                    return 'low';
+                }
+            }
+
+            displayResults(riskLevel) {
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.classList.add('active');
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+
+                // Display risk score
+                const riskScore = document.getElementById('riskScore');
+                const riskText = {
+                    'low': 'Low Risk',
+                    'medium': 'Medium Risk',
+                    'high': 'High Risk'
+                };
+                riskScore.innerHTML = `<div class="risk-badge risk-${riskLevel}">${riskText[riskLevel]}</div>`;
+
+                // Display summary
+                const summary = document.getElementById('summary');
+                const totalFields = Object.keys(this.metadata).length;
+                const sensitiveCount = this.sensitiveFields.size;
+                summary.innerHTML = `
+                    <div class="summary-item">
+                        <div class="summary-value">${totalFields}</div>
+                        <div class="summary-label">Total Metadata Fields</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-value">${sensitiveCount}</div>
+                        <div class="summary-label">Sensitive Fields</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-value">${totalFields - sensitiveCount}</div>
+                        <div class="summary-label">Safe Fields</div>
+                    </div>
+                `;
+
+                // Display metadata list
+                this.displayMetadataList();
+            }
+
+            displayNoMetadata() {
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.classList.add('active');
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+
+                const riskScore = document.getElementById('riskScore');
+                riskScore.innerHTML = '<div class="risk-badge risk-low">Low Risk - No EXIF Data</div>';
+
+                const summary = document.getElementById('summary');
+                summary.innerHTML = `
+                    <div class="summary-item">
+                        <div class="summary-value">0</div>
+                        <div class="summary-label">Metadata Fields Found</div>
+                    </div>
+                `;
+
+                const metadataList = document.getElementById('metadataList');
+                metadataList.innerHTML = '<div class="no-metadata">✓ No metadata found in this image. It\'s safe to share!</div>';
+
+                document.getElementById('selectAllBtn').style.display = 'none';
+                document.getElementById('removeBtn').style.display = 'none';
+            }
+
+            displayMetadataList() {
+                const metadataList = document.getElementById('metadataList');
+                metadataList.innerHTML = '';
+
+                Object.entries(this.metadata).forEach(([key, value]) => {
+                    const isSensitive = this.sensitiveFields.has(key);
+                    const item = document.createElement('div');
+                    item.className = `metadata-item ${isSensitive ? 'sensitive' : ''}`;
+                    
+                    const displayValue = this.formatValue(value);
+                    
+                    // Create elements safely to prevent XSS
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'metadata-label';
+                    
+                    if (isSensitive) {
+                        const warningIcon = document.createElement('span');
+                        warningIcon.className = 'warning-icon';
+                        warningIcon.textContent = '⚠️';
+                        labelDiv.appendChild(warningIcon);
+                    }
+                    
+                    const contentDiv = document.createElement('div');
+                    
+                    const keyDiv = document.createElement('div');
+                    keyDiv.className = 'metadata-key';
+                    keyDiv.textContent = key;
+                    
+                    const valueDiv = document.createElement('div');
+                    valueDiv.className = 'metadata-value';
+                    valueDiv.textContent = displayValue;
+                    
+                    contentDiv.appendChild(keyDiv);
+                    contentDiv.appendChild(valueDiv);
+                    labelDiv.appendChild(contentDiv);
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'metadata-checkbox';
+                    checkbox.setAttribute('data-key', key);
+                    if (isSensitive) {
+                        checkbox.checked = true;
+                    }
+                    
+                    item.appendChild(labelDiv);
+                    item.appendChild(checkbox);
+                    metadataList.appendChild(item);
+                });
+            }
+
+            formatValue(value) {
+                if (value === null || value === undefined) {
+                    return 'N/A';
+                }
+                if (typeof value === 'object') {
+                    return JSON.stringify(value);
+                }
+                if (typeof value === 'string' && value.length > 100) {
+                    return value.substring(0, 100) + '...';
+                }
+                return String(value);
+            }
+
+            selectAllSensitive() {
+                const checkboxes = document.querySelectorAll('.metadata-checkbox');
+                checkboxes.forEach(checkbox => {
+                    const key = checkbox.getAttribute('data-key');
+                    if (this.sensitiveFields.has(key)) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+
+            removeSelectedMetadata() {
+                const checkboxes = document.querySelectorAll('.metadata-checkbox:checked');
+                
+                if (checkboxes.length === 0) {
+                    alert('Please select at least one metadata field to remove');
+                    return;
+                }
+
+                // Create a canvas to draw the image without metadata
+                const canvas = document.createElement('canvas');
+                canvas.width = this.currentImage.width;
+                canvas.height = this.currentImage.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(this.currentImage, 0, 0);
+
+                // Convert to blob (this removes all EXIF data)
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    this.cleanedImageUrl = url;
+                    
+                    // Show download button
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.style.display = 'inline-flex';
+                    
+                    // Update UI to show metadata has been removed
+                    checkboxes.forEach(checkbox => {
+                        const key = checkbox.getAttribute('data-key');
+                        const item = checkbox.closest('.metadata-item');
+                        item.style.opacity = '0.5';
+                        item.style.textDecoration = 'line-through';
+                        checkbox.disabled = true;
+                    });
+
+                    alert(`Successfully removed ${checkboxes.length} metadata field(s)! Click "Download Cleaned Image" to save.`);
+                }, this.currentFile.type || 'image/jpeg', 0.95);
+            }
+
+            downloadCleanedImage() {
+                if (!this.cleanedImageUrl) {
+                    alert('Please remove metadata first');
+                    return;
+                }
+
+                const a = document.createElement('a');
+                const extensionMatch = this.currentFile.name.match(/\.[^/.]+$/);
+                const extension = extensionMatch ? extensionMatch[0] : '.jpg';
+                const baseName = this.currentFile.name.replace(/\.[^/.]+$/, '') || 'image';
+                const fileName = baseName + '_cleaned' + extension;
+                a.href = this.cleanedImageUrl;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+
+            reset() {
+                this.currentImage = null;
+                this.currentFile = null;
+                this.metadata = {};
+                this.sensitiveFields.clear();
+                
+                document.getElementById('resultsContainer').classList.remove('active');
+                document.getElementById('fileInput').value = '';
+                document.getElementById('imagePreview').style.display = 'none';
+                document.getElementById('downloadBtn').style.display = 'none';
+                document.getElementById('selectAllBtn').style.display = 'inline-flex';
+                document.getElementById('removeBtn').style.display = 'inline-flex';
+                
+                if (this.cleanedImageUrl) {
+                    URL.revokeObjectURL(this.cleanedImageUrl);
+                    this.cleanedImageUrl = null;
+                }
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new MetadataRiskAnalyzer();
+        });
+    </script>
+</body>
+</html>
